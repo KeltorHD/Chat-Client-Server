@@ -79,8 +79,8 @@ void TCPServer::start()
         printf("from client %s:%d\n", inet_ntoa(clnt_addr.sin_addr), ntohs(clnt_addr.sin_port));
         this->print_mutex.unlock();
 
-        this->clients.push_back(std::make_pair(std::make_shared<TCPClient>(NS, clnt_addr), std::string()));
-        this->threads.push_back(std::thread(&TCPServer::client_loop, this, (std::prev(this->clients.end()))->first));
+        this->clients.push_back(std::make_shared<TCPClient>(NS, clnt_addr));
+        this->threads.push_back(std::thread(&TCPServer::client_loop, this, *std::prev(this->clients.end())));
         this->threads.back().detach();
 
         this->vec_mutex.lock();
@@ -111,40 +111,40 @@ void TCPServer::start()
 
 void TCPServer::client_loop(std::shared_ptr<TCPClient> client)
 {
-    bool err{ false };
-    std::string name{ client->get_data(err) };
-    if (!err)
+    try
     {
-        this->vec_mutex.lock();
-        std::thread::id id{ std::this_thread::get_id() };
-        auto it_client = this->clients.begin();
-        for (auto it = this->threads.begin(); it != this->threads.end(); it++, it_client++)
+        bool err{ false };
+        std::string name{ client->get_data(err) };
+        if (!err)
         {
-            if (id == it->get_id())
+            printf("name: %s\n", name.c_str());
+
+            this->vec_mutex.lock();
+            client->set_name(name);
+            this->vec_mutex.unlock();
+
+            while (true)
             {
-                it_client->second = name;
+                err = false;
+                std::string data;
+                data = client->get_data(err);
+
+                if (err)
+                    break;
+
+                if (data.length() == 0) continue;
+
+                /*отправка всем клиентам сообщения от этого клиента*/
+                this->vec_mutex.lock();
+                printf("msg: %s, from: %s\n", data.c_str(), name.c_str());
+                this->send_msg_all(name, data);
+                this->vec_mutex.unlock();
             }
         }
-        this->vec_mutex.unlock();
-
-        while (true)
-        {
-            err = false;
-            std::string data;
-            data = client->get_data(err);
-
-            if (err)
-                break;
-
-            if (data.length() == 0) continue;
-
-            /*отправка всем клиентам сообщения от этого клиента*/
-            this->vec_mutex.lock();
-
-            this->vec_mutex.unlock();
-        }
     }
-
+    catch (...)
+    {
+    }
     // закрываем присоединенный сокет
     this->print_mutex.lock();
     printf("Client %s:%d disconnected.\n", inet_ntoa(client->cli_addr.sin_addr), ntohs(client->cli_addr.sin_port));
@@ -169,9 +169,9 @@ void TCPServer::send_msg_all(const std::string& from, const std::string& msg)
 {
     for (auto it = this->clients.begin(); it != this->clients.end(); it++)
     {
-        if (it->second != from)
+        if ((*it)->get_name() != from)
         {
-            it->first->send_data(from + ": " + msg);
+            (*it)->send_data(from + ": " + msg);
         }
     }
 }
@@ -200,34 +200,38 @@ const std::string& TCPServer::TCPClient::get_data(bool& err)
         err = false;
     }
 
-    lenBuffer[nReaded] = 0;
     // Отбрасываем символы превода строк
-    for (char* pPtr = lenBuffer; *pPtr != 0; pPtr++)
+    /*for (char* pPtr = lenBuffer; *pPtr != 0; pPtr++)
     {
         if (*pPtr == '\n' || *pPtr == '\r')
         {
             *pPtr = 0;
             break;
         }
-    }
+    }*/
 
     /*получаем длину сообщения*/
-    int32_t length;
-    std::memcpy(&length, lenBuffer, 4);
-    if (length < 0) length = 0;
+    int32_t length{ 0 };
+    std::memcpy(&length, lenBuffer, 4); 
+    if (length < 0)
+    {
+        err = true;
+        return "";
+    }
+    printf("len buf: %d, size: %d\n", nReaded, length);
 
     char* sReceiveBuffer = new char[length] {};
     nReaded = recv(S, sReceiveBuffer, length - 1, 0);
     if (nReaded <= 0)
     {
         err = true;
+        delete[] sReceiveBuffer;
         return "";
     }
     else
     {
         err = false;
     }
-    if (nReaded < 0) nReaded = 0;
 
     sReceiveBuffer[nReaded] = 0;
     // Отбрасываем символы превода строк

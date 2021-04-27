@@ -36,6 +36,8 @@ bool includes(std::string inc, std::string str)
 
 int main()
 {
+	system("chcp 65001>nul");
+
 	TCPServer server(20002);
 
 	server.start();

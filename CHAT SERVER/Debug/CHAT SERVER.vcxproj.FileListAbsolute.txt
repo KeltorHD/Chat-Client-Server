@@ -1,2 +1,0 @@
-C:\Users\Я\source\repos\CHAT SERVER\Debug\CHAT SERVER.exe
-C:\Users\Я\source\repos\CHAT SERVER\Debug\CHAT SERVER.pdb

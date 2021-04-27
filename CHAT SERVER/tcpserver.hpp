@@ -35,7 +35,7 @@ private:
 	sockaddr_in serv_addr;
 	WSADATA wsadata;
 	std::list<std::thread> threads;
-	std::list<std::pair<std::shared_ptr<TCPClient>, std::string>> clients;
+	std::list<std::shared_ptr<TCPClient>> clients;
 	std::mutex print_mutex;
 	std::mutex vec_mutex;
 	std::vector<size_t> del;
@@ -60,6 +60,9 @@ private:
 	SOCKET S; //сокет клиента
 	sockaddr_in cli_addr;
 	std::string data;
+	std::string name;
 
 	const std::string& get_data(bool& err);
+	void set_name(std::string name) { this->name = name; }
+	const std::string& get_name() { return this->name; }
 };
