@@ -1,0 +1,4 @@
+﻿  tcpserver.cpp
+C:\Users\Я\source\repos\CHAT SERVER\tcpserver.cpp(196): warning C4172: возвращение адреса локальной или временной переменной
+C:\Users\Я\source\repos\CHAT SERVER\tcpserver.cpp(224): warning C4172: возвращение адреса локальной или временной переменной
+  CHAT SERVER.vcxproj -> C:\Users\Я\source\repos\CHAT SERVER\Debug\CHAT SERVER.exe
