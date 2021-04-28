@@ -36,6 +36,7 @@ private:
 	WSADATA wsadata;
 	std::list<std::thread> threads;
 	std::list<std::shared_ptr<TCPClient>> clients;
+	std::vector<std::string> block;
 	std::mutex print_mutex;
 	std::mutex vec_mutex;
 	std::vector<size_t> del;

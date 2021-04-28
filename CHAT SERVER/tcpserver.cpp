@@ -1,5 +1,36 @@
 #include "tcpserver.hpp"
 
+#include <iomanip>
+
+bool includes(std::string inc, std::string str)
+{
+    for (size_t i = 0; i < min(str.length(), inc.length()); i++)
+    {
+        if (inc[i] != str[i])
+            return false;
+    }
+    return true;
+}
+
+
+std::vector<std::string> delim(std::string str, std::string delim)
+{
+    std::vector<std::string> arr;
+    size_t prev = 0;
+    size_t next;
+    size_t delta = delim.length();
+
+    while ((next = str.find(delim, prev)) != std::string::npos)
+    {
+        arr.push_back(str.substr(prev, next - prev));
+        prev = next + delta;
+    }
+
+    arr.push_back(str.substr(prev));
+
+    return arr;
+}
+
 TCPServer::TCPServer(unsigned port)
     :port(port)
 {
@@ -136,8 +167,47 @@ void TCPServer::client_loop(std::shared_ptr<TCPClient> client)
 
                 /*отправка всем клиентам сообщения от этого клиента*/
                 this->vec_mutex.lock();
-                printf("msg: %s, from: %s\n", data.c_str(), name.c_str());
-                this->send_msg_all(name, data);
+
+                if (data == "~online")
+                {
+                    client->send_data("Текущие пользователи:\n");
+                    for (auto it = this->clients.begin(); it != this->clients.end(); it++)
+                    {
+                        client->send_data((*it)->get_name() + "\n");
+                    }
+                }
+                else if (includes(data, "~ls"))
+                {
+                    for (auto it = this->clients.begin(); it != this->clients.end(); it++)
+                    {
+                        if ((*it)->get_name() == delim(data, " ")[1])
+                        {
+                            std::string msg{};
+                            for (size_t i = 2; i < delim(data, " ").size(); i++)
+                            {
+                                msg += delim(data, " ")[i];
+                            }
+                            (*it)->send_data(msg + "\n");
+                        }
+                    }
+                }
+                else if (data == "~time")
+                {
+                    auto time = std::time(nullptr);
+                    char out[100]{};
+                    std::strftime(out, sizeof(out), "%F %T%z", std::gmtime(&time));
+                    client->send_data("Datetime: " + std::string(out) + "\n");
+                }
+                else if (includes(data, "~block"))
+                {
+                    this->block.push_back(delim(data, " ")[1] + ":" + name);
+                    printf("%s\n", std::string(delim(data, " ")[1] + ":" + name).c_str());
+                }
+                else
+                {
+                    printf("msg: %s, from: %s\n", data.c_str(), name.c_str());
+                    this->send_msg_all(name, data);
+                }
                 this->vec_mutex.unlock();
             }
         }
@@ -169,7 +239,17 @@ void TCPServer::send_msg_all(const std::string& from, const std::string& msg)
 {
     for (auto it = this->clients.begin(); it != this->clients.end(); it++)
     {
-        if ((*it)->get_name() != from)
+        bool need{ true };
+        for (size_t i = 0; i < this->block.size(); i++)
+        {
+            if (this->block[i] == from + ":" + (*it)->get_name())
+            {
+                need = false;
+                break;
+            }
+        }
+        if ((*it)->get_name() != from 
+            && need)
         {
             (*it)->send_data(from + ": " + msg);
         }
